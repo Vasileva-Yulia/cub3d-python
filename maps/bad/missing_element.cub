@@ -1,0 +1,6 @@
+NO textures/north.png
+SO textures/south.png
+WE textures/west.png
+EA textures/east.png
+
+F 60,60,70
