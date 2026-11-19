@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 import main
+from cub3d.scene import Scene
 
 MAPS = Path(__file__).resolve().parent.parent / "maps"
 
@@ -27,5 +28,23 @@ def test_errors(name: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert "Traceback" not in err
 
 
-def test_good_map() -> None:
+def test_good_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    sizes: list[tuple[int, int]] = []
+
+    def fake_window(scene: Scene, width: int, height: int) -> None:
+        sizes.append((width, height))
+
+    monkeypatch.setattr(main, "run_window", fake_window)  # окно в тестах не открываем
     assert main.main([str(MAPS / "simple.cub")]) == 0
+    assert sizes == [(960, 600)]
+
+
+def test_window_size_from_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
+    sizes: list[tuple[int, int]] = []
+
+    def fake_window(scene: Scene, width: int, height: int) -> None:
+        sizes.append((width, height))
+
+    monkeypatch.setattr(main, "run_window", fake_window)
+    assert main.main([str(MAPS / "simple.cub"), "--width", "640", "--height", "400"]) == 0
+    assert sizes == [(640, 400)]

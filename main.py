@@ -5,6 +5,7 @@ import sys
 
 from cub3d.errors import CubError
 from cub3d.parser import parse_scene
+from cub3d.window import run_window
 
 
 def make_arg_parser() -> argparse.ArgumentParser:
@@ -28,18 +29,13 @@ def main(argv: list[str]) -> int:
 
     try:
         scene = parse_scene(args.scene)
+        run_window(scene, args.width, args.height)
     except CubError as e:
         print_error(str(e))
         return 1
     except OSError as e:
         print_error(f"не удалось открыть {args.scene}: {e.strerror or e}")
         return 1
-
-    # TODO: окно в feature/raycast
-    print(
-        f"{args.scene}: карта {scene.width}x{scene.height}, "
-        f"игрок в клетке ({scene.start_x}, {scene.start_y}), взгляд {scene.start_dir}"
-    )
     return 0
 
 
