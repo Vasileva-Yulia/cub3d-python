@@ -7,6 +7,7 @@ from cub3d.errors import RaycastError
 from cub3d.scene import Scene
 
 BIG = 1e30  # «бесконечное» расстояние для луча, параллельного оси
+MIN_DISTANCE = 0.01  # ближе стену не считаем, чтобы не делить на ноль
 
 
 @dataclass
@@ -88,3 +89,22 @@ def cast_ray(scene: Scene, pos_x: float, pos_y: float, ray_x: float, ray_y: floa
         hit_pos = pos_x + distance * ray_x
     wall_x = hit_pos - math.floor(hit_pos)
     return RayHit(map_x, map_y, side, distance, wall_x, wall_facing(side, ray_x, ray_y))
+
+
+def strip_height(distance: float, screen_height: int) -> int:
+    """Полная высота полосы стены в пикселях: на расстоянии 1 - весь экран, на 2 - половина."""
+    if distance < MIN_DISTANCE:
+        distance = MIN_DISTANCE
+    return int(screen_height / distance)
+
+
+def wall_strip(distance: float, screen_height: int) -> tuple[int, int]:
+    """Верхняя и нижняя (не включая) строка полосы: по центру экрана, обрезана его краями."""
+    height = strip_height(distance, screen_height)
+    top = (screen_height - height) // 2
+    bottom = top + height
+    if top < 0:
+        top = 0
+    if bottom > screen_height:
+        bottom = screen_height
+    return top, bottom
