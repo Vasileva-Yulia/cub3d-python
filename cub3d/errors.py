@@ -18,3 +18,7 @@ class SceneFormatError(CubError):
         super().__init__(text)
         self.line = line
         self.column = column
+
+
+class RaycastError(CubError):
+    """Луч не встретил стену: карта не замкнута."""
