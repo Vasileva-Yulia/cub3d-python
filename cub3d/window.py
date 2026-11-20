@@ -6,12 +6,14 @@ import pygame
 
 from cub3d.camera import camera_x, ray_direction
 from cub3d.errors import CubError
-from cub3d.player import Player, make_player
+from cub3d.movement import walk_player
+from cub3d.player import TURN_SPEED, Player, make_player, rotate_player
 from cub3d.raycast import cast_ray, wall_strip
 from cub3d.scene import Scene
 
 WALL_COLORS = ((140, 140, 140), (200, 200, 200))  # side 0 темнее, side 1 светлее
 FPS_LIMIT = 60
+MAX_DT = 0.1  # самый длинный шаг по времени: при лаге игрок не «перепрыгнет» стену
 
 
 def draw_frame(screen: pygame.Surface, scene: Scene, player: Player) -> None:
@@ -35,23 +37,49 @@ def save_frame(scene: Scene, path: str | Path, width: int, height: int) -> None:
     pygame.image.save(screen, str(path))
 
 
+def handle_keys(player: Player, scene: Scene, dt: float) -> None:
+    """Зажатые клавиши: W/S - вперёд и назад, A/D - боком, стрелки влево и вправо - поворот."""
+    keys = pygame.key.get_pressed()
+    forward = 0
+    strafe = 0
+    turn = 0
+    if keys[pygame.K_w]:
+        forward += 1
+    if keys[pygame.K_s]:
+        forward -= 1
+    if keys[pygame.K_d]:
+        strafe += 1
+    if keys[pygame.K_a]:
+        strafe -= 1
+    if keys[pygame.K_RIGHT]:
+        turn += 1
+    if keys[pygame.K_LEFT]:
+        turn -= 1
+    rotate_player(player, turn * TURN_SPEED * dt)
+    walk_player(player, scene, forward, strafe, dt)
+
+
 def run_window(scene: Scene, width: int, height: int) -> None:
-    """Открыть окно и показывать сцену, пока не нажат Esc или не закрыто окно."""
+    """Открыть окно: игрок ходит по сцене, пока не нажат Esc или не закрыто окно."""
     player = make_player(scene)
     try:
         pygame.init()
         screen = pygame.display.set_mode((width, height))
         clock = pygame.time.Clock()
         running = True
+        dt = 0.0  # время предыдущего кадра в секундах
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     running = False
+            handle_keys(player, scene, dt)
             draw_frame(screen, scene, player)
             pygame.display.flip()
-            clock.tick(FPS_LIMIT)
+            dt = clock.tick(FPS_LIMIT) / 1000
+            if dt > MAX_DT:
+                dt = MAX_DT
             pygame.display.set_caption(f"cub3D - {clock.get_fps():.0f} FPS")
     except pygame.error as e:
         raise CubError(f"ошибка графической библиотеки: {e}") from e
