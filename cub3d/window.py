@@ -8,16 +8,48 @@ from cub3d.camera import camera_x, ray_direction
 from cub3d.errors import CubError
 from cub3d.movement import walk_player
 from cub3d.player import TURN_SPEED, Player, make_player, rotate_player
-from cub3d.raycast import cast_ray, wall_strip
+from cub3d.raycast import cast_ray, strip_height
 from cub3d.scene import Scene
+from cub3d.texture import TEXTURE_SIZE, texture_column, texture_rows
 
-WALL_COLORS = ((140, 140, 140), (200, 200, 200))  # side 0 темнее, side 1 светлее
+Textures = dict[str, list[pygame.Surface]]  # "NO", "SO", "WE", "EA" -> 64 столбца текстуры
+
 FPS_LIMIT = 60
 MAX_DT = 0.1  # самый длинный шаг по времени: при лаге игрок не «перепрыгнет» стену
 
 
-def draw_frame(screen: pygame.Surface, scene: Scene, player: Player) -> None:
-    """Нарисовать кадр: потолок, пол и по одной вертикальной полосе стены на столбец."""
+def load_textures(scene: Scene) -> Textures:
+    """Загрузить текстуры и нарезать каждую на 64 столбца шириной в 1 пиксель."""
+    textures: Textures = {}
+    for key, path in scene.textures.items():
+        try:
+            image = pygame.image.load(str(path))
+        except pygame.error as e:
+            raise CubError(f"не удалось загрузить текстуру {path}: {e}") from e
+        if image.get_size() != (TEXTURE_SIZE, TEXTURE_SIZE):
+            raise CubError(f"текстура {path} должна быть размером {TEXTURE_SIZE}x{TEXTURE_SIZE}")
+        if pygame.display.get_surface() is not None:
+            image = image.convert()  # формат как у окна: так быстрее копировать на экран
+        columns = []
+        for x in range(TEXTURE_SIZE):
+            columns.append(image.subsurface((x, 0, 1, TEXTURE_SIZE)))
+        textures[key] = columns
+    return textures
+
+
+def draw_wall_column(screen: pygame.Surface, column: pygame.Surface, x: int, height: int) -> None:
+    """Растянуть столбец текстуры на высоту полосы и скопировать на экран в столбец x."""
+    top = (screen.get_height() - height) // 2
+    # у близкой стены масштабируем только видимую часть столбца
+    first, last = texture_rows(height, screen.get_height())
+    part = column.subsurface((0, first, 1, last - first))
+    part_top = top + first * height // TEXTURE_SIZE
+    part_height = top + last * height // TEXTURE_SIZE - part_top
+    screen.blit(pygame.transform.scale(part, (1, part_height)), (x, part_top))
+
+
+def draw_frame(screen: pygame.Surface, scene: Scene, player: Player, textures: Textures) -> None:
+    """Нарисовать кадр: потолок, пол и по одному столбцу текстуры на столбец экрана."""
     width, height = screen.get_size()
     half = height // 2
     screen.fill(scene.ceiling, (0, 0, width, half))
@@ -25,15 +57,15 @@ def draw_frame(screen: pygame.Surface, scene: Scene, player: Player) -> None:
     for column in range(width):
         ray_x, ray_y = ray_direction(player, camera_x(column, width))
         hit = cast_ray(scene, player.x, player.y, ray_x, ray_y)
-        top, bottom = wall_strip(hit.distance, height)
-        # bottom не входит в полосу, а draw.line рисует обе крайние точки
-        pygame.draw.line(screen, WALL_COLORS[hit.side], (column, top), (column, bottom - 1))
+        wall_height = strip_height(hit.distance, height)
+        tex_x = texture_column(hit.wall_x, hit.facing)
+        draw_wall_column(screen, textures[hit.facing][tex_x], column, wall_height)
 
 
 def save_frame(scene: Scene, path: str | Path, width: int, height: int) -> None:
     """Нарисовать один кадр без окна и сохранить в PNG."""
     screen = pygame.Surface((width, height))
-    draw_frame(screen, scene, make_player(scene))
+    draw_frame(screen, scene, make_player(scene), load_textures(scene))
     pygame.image.save(screen, str(path))
 
 
@@ -65,6 +97,7 @@ def run_window(scene: Scene, width: int, height: int) -> None:
     try:
         pygame.init()
         screen = pygame.display.set_mode((width, height))
+        textures = load_textures(scene)
         clock = pygame.time.Clock()
         running = True
         dt = 0.0  # время предыдущего кадра в секундах
@@ -75,7 +108,7 @@ def run_window(scene: Scene, width: int, height: int) -> None:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     running = False
             handle_keys(player, scene, dt)
-            draw_frame(screen, scene, player)
+            draw_frame(screen, scene, player, textures)
             pygame.display.flip()
             dt = clock.tick(FPS_LIMIT) / 1000
             if dt > MAX_DT:

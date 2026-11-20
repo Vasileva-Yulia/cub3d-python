@@ -95,16 +95,7 @@ def strip_height(distance: float, screen_height: int) -> int:
     """Полная высота полосы стены в пикселях: на расстоянии 1 - весь экран, на 2 - половина."""
     if distance < MIN_DISTANCE:
         distance = MIN_DISTANCE
-    return int(screen_height / distance)
-
-
-def wall_strip(distance: float, screen_height: int) -> tuple[int, int]:
-    """Верхняя и нижняя (не включая) строка полосы: по центру экрана, обрезана его краями."""
-    height = strip_height(distance, screen_height)
-    top = (screen_height - height) // 2
-    bottom = top + height
-    if top < 0:
-        top = 0
-    if bottom > screen_height:
-        bottom = screen_height
-    return top, bottom
+    height = int(screen_height / distance)
+    if height < 1:
+        height = 1  # у очень далёкой стены остаётся хотя бы одна строка
+    return height
