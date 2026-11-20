@@ -7,6 +7,7 @@ from cub3d.scene import Scene
 
 FOV = 66  # угол обзора в градусах
 PLANE_LENGTH = math.tan(math.radians(FOV / 2))  # длина plane, около 0,65
+TURN_SPEED = 2.0  # скорость поворота, радиан в секунду
 
 
 @dataclass
@@ -33,3 +34,15 @@ def make_player(scene: Scene) -> Player:
     plane_x = -dir_y * PLANE_LENGTH
     plane_y = dir_x * PLANE_LENGTH
     return Player(scene.start_x + 0.5, scene.start_y + 0.5, dir_x, dir_y, plane_x, plane_y)
+
+
+def rotate_player(player: Player, angle: float) -> None:
+    """Повернуть взгляд и плоскость камеры на angle радиан (положительный угол - вправо)."""
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+    old_dir_x = player.dir_x
+    player.dir_x = player.dir_x * cos_a - player.dir_y * sin_a
+    player.dir_y = old_dir_x * sin_a + player.dir_y * cos_a
+    old_plane_x = player.plane_x
+    player.plane_x = player.plane_x * cos_a - player.plane_y * sin_a
+    player.plane_y = old_plane_x * sin_a + player.plane_y * cos_a
