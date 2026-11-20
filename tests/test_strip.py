@@ -1,6 +1,6 @@
 import pytest
 
-from cub3d.raycast import strip_height, wall_strip
+from cub3d.raycast import strip_height
 
 
 @pytest.mark.parametrize(
@@ -10,20 +10,16 @@ from cub3d.raycast import strip_height, wall_strip
         (2, 300),  # на расстоянии 2 - половину
         (4, 150),
         (2.5, 240),
+        (0.5, 1200),  # ближе одной клетки полоса выше экрана
     ],
 )
 def test_strip_height(distance: float, expected: int) -> None:
     assert strip_height(distance, 600) == expected
 
 
-def test_wall_strip_is_centered() -> None:
-    assert wall_strip(2, 600) == (150, 450)
-    assert wall_strip(4, 600) == (225, 375)
+def test_strip_height_at_zero_distance() -> None:
+    assert strip_height(0, 600) > 600  # деления на ноль нет
 
 
-def test_wall_strip_is_cut_by_screen() -> None:
-    assert wall_strip(0.5, 600) == (0, 600)  # стена ближе одной клетки выше экрана
-
-
-def test_wall_strip_at_zero_distance() -> None:
-    assert wall_strip(0, 600) == (0, 600)  # деления на ноль нет
+def test_strip_height_is_at_least_one() -> None:
+    assert strip_height(100000, 600) == 1
